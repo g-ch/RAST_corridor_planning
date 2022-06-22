@@ -1,0 +1,8 @@
+prefix=/usr/local
+
+Name: dynamic_occpuancy_map
+Description: Description of dynamic_occpuancy_map
+Version: 0.0.0
+Cflags: 
+Libs: -L${prefix}/lib 
+Requires: 

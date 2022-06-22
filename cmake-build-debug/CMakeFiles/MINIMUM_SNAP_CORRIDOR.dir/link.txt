@@ -1,0 +1,1 @@
+/usr/bin/c++ -fPIC   -std=c++11 -g   -shared -Wl,-soname,libMINIMUM_SNAP_CORRIDOR.so -o devel/lib/libMINIMUM_SNAP_CORRIDOR.so CMakeFiles/MINIMUM_SNAP_CORRIDOR.dir/src/corridor_minisnap.cpp.o 

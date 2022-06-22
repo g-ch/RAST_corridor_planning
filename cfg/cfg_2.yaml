@@ -1,0 +1,36 @@
+p_goal_x: 60
+p_goal_y: 0
+p_goal_z: 1.5
+
+max_vel: 2.0
+max_acc: 2.0
+
+max_differentiated_current_a: 2.0
+
+use_height_limit: true
+height_limit_max: 2.2
+height_limit_min: 0.0
+
+planning_time_step: 0.05
+trajectory_piece_max_size: 10
+
+rviz_map_center_locked: false
+
+# A*
+a_star_acc_sample_step: 1.0
+a_star_search_time_step: 0.6
+
+risk_threshold_motion_primitive: 0.3
+risk_threshold_single_voxel: 0.15
+risk_threshold_corridor: 4.0
+
+
+# Trajectory planner
+pos_factor: 0.0
+vel_factor: 0.5
+acc_factor: 0.5
+jerk_factor: 0.0
+snap_factor: 0.0
+delta_corridor: 0.3
+
+
