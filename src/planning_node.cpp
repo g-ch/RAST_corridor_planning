@@ -1401,7 +1401,7 @@ int main(int argc, char **argv)
 
     ros::Timer timer2 = n.createTimer(ros::Duration(planning_time_step), trajectoryCallback);
     ros::Timer timer3 = n.createTimer(ros::Duration(planning_time_step), setpointCallback);
-    
+
 
     ros::AsyncSpinner spinner(3); // Use 3 threads
     spinner.start();

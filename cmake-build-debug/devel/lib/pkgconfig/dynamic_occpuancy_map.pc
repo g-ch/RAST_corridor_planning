@@ -1,8 +1,0 @@
-prefix=/home/clarence/ros_ws/corridor_publish_ws/src/RAST_corridor_planning/cmake-build-debug/devel
-
-Name: dynamic_occpuancy_map
-Description: Description of dynamic_occpuancy_map
-Version: 0.0.0
-Cflags: 
-Libs: -L${prefix}/lib 
-Requires: 
