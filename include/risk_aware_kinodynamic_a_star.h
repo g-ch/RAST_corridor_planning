@@ -149,6 +149,7 @@ public:
         height_max_limit = 0.f;
         height_min_limit = 0.f;
         use_height_limit = false;
+        sample_z_acc = true;
 
         map_center_x = 0.f;
         map_center_y = 0.f;
@@ -174,27 +175,22 @@ public:
             a_x += a_sample_step_xy;
         }
 
-        /// Sample y more aggressively
+        // Sample y a little more aggressively
         float a_y = a_min_y - 0.5f;
         while(a_y < a_max_xy + 0.51f){
             a_sample_vector_y.push_back(a_y);
             a_y += a_sample_step_xy+0.5f;
         }
 
-//        float a_y = a_min_y;
-//        while(a_y < a_max_xy + 0.001f){
-//            a_sample_vector_y.push_back(a_y);
-//            a_y += a_sample_step_xy;
-//        }
-
-        /// Don't sample z!
-        a_sample_vector_z.push_back(0);
-
-//        float a_z = a_min_z;
-//        while(a_z < a_max_z + 0.001f){
-//            a_sample_vector_z.push_back(a_z);
-//            a_z += a_sample_step_z;
-//        }
+        if(sample_z_acc){
+            float a_z = a_min_z;
+            while(a_z < a_max_z + 0.001f){
+                a_sample_vector_z.push_back(a_z);
+                a_z += a_sample_step_z;
+            }
+        }else{
+            a_sample_vector_z.push_back(0);
+        }
     }
 
 
@@ -202,6 +198,11 @@ public:
     {
         time_step_node = time_step_node_to_set;
         time_step_trajectory = time_step_trajectory_to_set;
+    }
+
+    void setIfSampleZDirection(bool if_sample_z_acc)
+    {
+        sample_z_acc = if_sample_z_acc;
     }
 
     void setHeightLimit(bool if_use_height_limit, float limit_max, float limit_min)
@@ -1243,6 +1244,7 @@ private:
     float height_max_limit;
     float height_min_limit;
     bool use_height_limit;
+    bool sample_z_acc;
 
     float map_center_x;
     float map_center_y;

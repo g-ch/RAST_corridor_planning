@@ -27,8 +27,6 @@
 #include "std_msgs/UInt8.h"
 
 
-#define USE_SAMPLED_TRAJECTORY false
-
 using namespace traj_opt;
 using namespace std;
 using namespace std::chrono;
@@ -42,8 +40,8 @@ queue<double> pose_att_time_queue;
 queue<Eigen::Vector3d> uav_position_global_queue;
 queue<Eigen::Quaternionf> uav_att_global_queue;
 
-ros::Publisher corridor_pub, trajectory_pub, color_vel_pub, pva_pub, pva_traj_pub, velocity_setpoint_pub, position_tracking_pub;
-ros::Publisher current_marker_pub, fov_pub, cluster_status_pub, astar_result_pub, mode_pub, tracking_error_too_large_state_pub;
+ros::Publisher corridor_pub, color_vel_pub, trajectory_pub, pva_pub, pva_traj_pub, velocity_setpoint_pub, position_tracking_pub;
+ros::Publisher current_marker_pub, fov_pub, astar_result_pub, mode_pub, tracking_error_too_large_state_pub;
 
 Eigen::Vector3d uav_position_global;
 Eigen::Vector3d uav_velocity_global;
@@ -92,9 +90,11 @@ double delta_corridor = 0.3;
 bool use_height_limit = true;
 float height_limit_max = 2.2f;
 float height_limit_min = 0.f;
+bool sample_z_acc = true;
 
 float a_star_acc_sample_step = 2.f;
 float a_star_search_time_step = 0.4f; /// Should be tuned to reach one voxel at least when using maximum acceleration.
+float expand_safety_distance = 0.2f;
 
 float risk_threshold_motion_primitive = 0.15;
 float risk_threshold_single_voxel = 0.15;
@@ -137,7 +137,6 @@ void corridorsPublish(vector<Corridor*> &corridors, geometry_msgs::PoseStamped &
     marker.type = visualization_msgs::Marker::CUBE;
     marker.action = visualization_msgs::Marker::ADD;
     marker.ns = "cubes";
-//    marker.lifetime = ros::Duration(0.15);
 
     marker.color.a = 0.2;
     marker.color.g = 1.0;
@@ -230,8 +229,6 @@ void linesPublish(vector<Eigen::Vector3d> &points, int id, float r, float g, flo
         }
     }
 
-//    ROS_INFO("Points num = %ld", points.size());
-
     visualization_msgs::Marker marker;
 
     marker.header.frame_id = "map";
@@ -271,16 +268,7 @@ void mapFutureStatusCallback(const std_msgs::Float32MultiArrayConstPtr &future_r
     future_risk_locked = true;
     for(int i=0; i<VOXEL_NUM; ++i){
         for(int j=0; j<RISK_MAP_NUMBER; ++j){
-//            /// Remove the particles in the MAV cube range. Tooooooo Slow!!!
-//            static float mav_cube_size_half = 0.3f;
-//            float px, py, pz;
-//            my_map.getVoxelPositionFromIndexPublic(i, px, py, pz);
-//            if(fabs(px) > mav_cube_size_half || fabs(py) > mav_cube_size_half || fabs(pz) > mav_cube_size_half){
             future_risk_global[i][j] = future_risk->data[i*future_risk->layout.dim[0].stride + j];
-//            }else{
-//                future_risk_global[i][j] = 0.f;
-//            }
-
         }
     }
     future_risk_locked = false;
@@ -317,7 +305,6 @@ int getPointSpatialIndexInMap(const PVAYPoint &p, const Eigen::Vector3d &map_cen
 
 
 void trajectoryCallback(const ros::TimerEvent& e)
-//void trajectoryCallback()
 {
     static double last_end_time = ros::Time::now().toSec();
 
@@ -354,7 +341,6 @@ void trajectoryCallback(const ros::TimerEvent& e)
     tracking_error_signal.point.x = 0.0;
 
     if(in_safety_mode){
-//        planning_start_p = uav_position_global - planning_start_map_center;
         planning_start_p = p_store_for_em - planning_start_map_center;
 
         planning_start_v = Eigen::Vector3d::Zero();
@@ -423,7 +409,7 @@ void trajectoryCallback(const ros::TimerEvent& e)
     tracking_error_too_large_state_pub.publish(tracking_error_signal);
 
 
-    /***** P2: Kino-dynamic A*  ****/
+    /***** P2: Risk-aware Kino-dynamic A*  ****/
     double astar_start_time = ros::Time::now().toSec();
 
     if(fabs(planning_start_v.x()) > astar_planner.v_max_xy){//} || fabs(planning_start_v.y()) > astar_planner.v_max_xy || fabs(planning_start_v.z()) > astar_planner.v_max_z){
@@ -436,9 +422,6 @@ void trajectoryCallback(const ros::TimerEvent& e)
         planning_start_v.z() = astar_planner.v_max_z * planning_start_v.z() / fabs(planning_start_v.z());
     }
 
-//    if(!trajectory_piece.empty())
-//    cout << "trajectory_piece.back().position.x="<<trajectory_piece.back().position.x() << " planning_start_map_center.x()=" <<planning_start_map_center.x() <<endl;
-
     Node *start_node = new Node(0, planning_start_p.x(), planning_start_p.y(), planning_start_p.z(),
                                 planning_start_v.x(), planning_start_v.y(), planning_start_v.z());
     Node *end_node = new Node(0, goal_x-planning_start_map_center(0),goal_y-planning_start_map_center(1),goal_z-planning_start_map_center(2), 0, 0, 0);
@@ -448,7 +431,7 @@ void trajectoryCallback(const ros::TimerEvent& e)
 
 
     astar_planner.updateMapCenterPosition(planning_start_map_center(0), planning_start_map_center(1), planning_start_map_center(2));
-    astar_planner.search(start_node, end_node, start_time, 0.2, reference_direction_angle, &future_risk_planning[0][0], result); //distance = 0.25
+    astar_planner.search(start_node, end_node, start_time, expand_safety_distance, reference_direction_angle, &future_risk_planning[0][0], result); //distance = 0.25
 
     vector<TrajPoint> searched_points;
     astar_planner.getSearchedPoints(searched_points);
@@ -508,7 +491,6 @@ void trajectoryCallback(const ros::TimerEvent& e)
 
         // Set reference_direction_angle
         reference_direction_angle = atan2(points[1].y()-points[0].y(), points[1].x()-points[0].x());
-//        ROS_ERROR("reference_direction_angle=%f", reference_direction_angle);
 
         // Restore trajectories and publish
         vector<Eigen::Vector3d> a_star_traj_points_to_show;
@@ -539,44 +521,10 @@ void trajectoryCallback(const ros::TimerEvent& e)
 
                 a_star_traj_points_to_show.push_back(p);
 
-                /***Test code. use a* only**/
-                if(USE_SAMPLED_TRAJECTORY){
-                    PVAYPoint pva_p;
-                    pva_p.position = p + planning_start_map_center;
-                    pva_p.position.z() = 1.2;
-                    pva_p.velocity.x() = node1->vx + ax*t;
-                    pva_p.velocity.y() = node1->vy + ay*t;
-                    pva_p.velocity.z() = 0.0; //node1->vz + az*t;
-                    pva_p.acceleration << ax, ay, 0.0; //az;
-                    trajectory_piece_temp.push(pva_p);
-                }
-                /************/
-
             }
 
         }
         linesPublish(a_star_traj_points_to_show, 1, 0.1, 0.9, 0.2, 1.0, 0.1, visualization_msgs::Marker::LINE_STRIP);
-
-
-        /***Test code. use a* only**/
-        if(USE_SAMPLED_TRAJECTORY){
-            float time = 0.f;
-            trajectory_to_nmpc = trajectory_piece_temp;
-
-            while(trajectory_piece.size() < trajectory_piece_max_size && !trajectory_piece_temp.empty())
-            {
-                time += planning_time_step;
-                PVAYPoint p  = trajectory_piece_temp.front();
-                trajectory_piece_temp.pop();
-                trajectory_piece.push(p);
-            }
-            trajectory_initialized = true;
-            last_end_time = ros::Time::now().toSec();
-
-            return;
-        }
-        /************/
-
 
 
         /***** P3: Risk-constrained corridor ****/
@@ -622,23 +570,9 @@ void trajectoryCallback(const ros::TimerEvent& e)
         corridor_msg.end_vel.y = result[result.size()-1]->vy;
         corridor_msg.end_vel.z = result[result.size()-1]->vz;
 
-//        corridor_msg.end_vel.x = 0.f;
-//        corridor_msg.end_vel.y = 0.f;
-//        corridor_msg.end_vel.z = 0.f;
-
         corridor_msg.end_acc.x = 0.f;
         corridor_msg.end_acc.y = 0.f;
         corridor_msg.end_acc.z = 0.f;
-
-//        /// Scale the end velocity to a small value
-//        double end_vel_norm = sqrt(corridor_msg.end_vel.x*corridor_msg.end_vel.x + corridor_msg.end_vel.y*corridor_msg.end_vel.y + corridor_msg.end_vel.z*corridor_msg.end_vel.z);
-//        static const double max_end_vel_to_plan = 0.5;
-//        if(end_vel_norm > max_end_vel_to_plan){
-//            double scale_factor = max_end_vel_to_plan / end_vel_norm;
-//            corridor_msg.end_vel.x *= scale_factor;
-//            corridor_msg.end_vel.y *= scale_factor;
-//            corridor_msg.end_vel.z *= scale_factor;
-//        }
 
 
         for(auto & corridor : corridors)
@@ -858,7 +792,6 @@ bool optimizationInCorridors(const decomp_ros_msgs::DynPolyhedronArray msg, cons
 
 
     /* clean buffer */
-//    ROS_INFO_STREAM("corridor size: " << corridors.size());
 
     double T = 0;
     for (auto it = time_alloc.begin(); it != time_alloc.end(); ++it) {
@@ -933,9 +866,6 @@ bool optimizationInCorridors(const decomp_ros_msgs::DynPolyhedronArray msg, cons
 
         yaw_sp_last = yaw_sp;
         p.yaw = yaw_sp;
-//        p.yaw = 0.0;
-//        cout << "traj_.getPos(time).x=" << traj_.getPos(time).x() <<" planning_start_map_center.x="<<planning_start_map_center.x() << endl;
-
         trajectory_to_nmpc.push(p);
 
         if(trajectory_piece.size() < trajectory_piece_max_size){
@@ -1021,7 +951,6 @@ bool optimizationInCorridors(const decomp_ros_msgs::DynPolyhedronArray msg, cons
 }
 
 void setpointCallback(const ros::TimerEvent& e)
-// void setpointCallback()
 {
     if(!position_received || !trajectory_initialized){
         return;
@@ -1133,8 +1062,6 @@ void setpointCallback(const ros::TimerEvent& e)
         }
     }
 
-//    ROS_INFO("traj_msg size = %ld", traj_msg.points.size());
-
     /// Add predicted points if no enough points for mpc
     geometry_msgs::Transform tr_last = traj_msg.points[traj_msg.points.size()-1].transforms[0];
     geometry_msgs::Twist vel_last = traj_msg.points[traj_msg.points.size()-1].velocities[0];
@@ -1226,22 +1153,6 @@ static void split(const string& s, vector<string>& tokens, const string& delimit
 }
 
 
-//void simOdomCallback(const nav_msgs::Odometry &msg)
-//{
-//    uav_position_global.x() = msg.pose.pose.position.x;
-//    uav_position_global.y() = msg.pose.pose.position.y;
-//    uav_position_global.z() = msg.pose.pose.position.z;
-//
-//    uav_att_global.x() = msg.pose.pose.orientation.x;
-//    uav_att_global.y() = msg.pose.pose.orientation.y;
-//    uav_att_global.z() = msg.pose.pose.orientation.z;
-//    uav_att_global.w() = msg.pose.pose.orientation.w;
-//
-//    uav_position_global_queue.push(uav_position_global);
-//    uav_att_global_queue.push(uav_att_global);
-//    pose_att_time_queue.push(msg.header.stamp.toSec());
-//}
-
 void simPoseCallback(const geometry_msgs::PoseStamped &msg)
 {
     if(!state_locked)
@@ -1259,7 +1170,6 @@ void simPoseCallback(const geometry_msgs::PoseStamped &msg)
         uav_position_global_queue.push(uav_position_global);
         uav_att_global_queue.push(uav_att_global);
         pose_att_time_queue.push(msg.header.stamp.toSec());
-//        ROS_INFO("Pose updated");
 
         position_received = true;
     }
@@ -1281,7 +1191,6 @@ void simVelocityCallback(const geometry_msgs::TwistStamped &msg)
     uav_velocity_global.y() = msg.twist.linear.y;
     uav_velocity_global.z() = msg.twist.linear.z;
 
-//    uav_acceleration_global
     /** Calculate virtual accelerates from velocity. Original accelerates given by px4 is too noisy **/
     static bool init_v_flag = true;
     static double last_time, last_vx, last_vy, last_vz;
@@ -1332,6 +1241,8 @@ void getParameterList(const ros::NodeHandle& nh) {
     nh.getParam("/planning_node/use_height_limit", use_height_limit);
     nh.getParam("/planning_node/height_limit_max", height_limit_max);
     nh.getParam("/planning_node/height_limit_min", height_limit_min);
+    nh.getParam("/planning_node/sample_z_acc", sample_z_acc);
+    nh.getParam("/planning_node/expand_safety_distance", expand_safety_distance);
     nh.getParam("/planning_node/trajectory_piece_max_size", trajectory_piece_max_size);
     nh.getParam("/planning_node/nmpc_receive_points_num", nmpc_receive_points_num);
 
@@ -1367,10 +1278,9 @@ int main(int argc, char **argv)
     getParameterList(n);
     astar_planner.setTimeParameters(a_star_search_time_step, planning_time_step);
     astar_planner.setHeightLimit(use_height_limit, height_limit_max, height_limit_min);
+    astar_planner.setIfSampleZDirection(sample_z_acc);
     astar_planner.setMaximumVelAccAndStep(static_cast<float>(max_vel), static_cast<float>(max_vel), static_cast<float>(max_acc), static_cast<float>(max_acc/2.0), a_star_acc_sample_step);
-//    astar_planner.setMaximumVelAccAndStep(2.f, 2.f, 2.f, 1.f, a_star_acc_sample_step);
     astar_planner.setRiskThreshold(risk_threshold_motion_primitive, risk_threshold_single_voxel, risk_threshold_corridor);
-
 
     ros::Subscriber future_risk_sub = n.subscribe("/my_map/future_risk_full_array", 1, mapFutureStatusCallback);
     ros::Subscriber pose_sub = n.subscribe("/mavros/local_position/pose", 1, simPoseCallback);

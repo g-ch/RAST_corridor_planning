@@ -1,11 +1,9 @@
 cmake_minimum_required(VERSION 3.0.2)
-project(dynamic_occpuancy_map)
+project(rast_corridor_planning)
 
 add_definitions(-std=c++17 -g -O3 -ftree-vectorize -ffast-math -march=native -lpthread)
-#add_definitions(-std=c++17)
 
 find_package(PCL REQUIRED)
-find_package(OpenCV 4 REQUIRED)
 find_package(Eigen3 REQUIRED)
 set(Eigen3_INCLUDE_DIRS ${EIGEN3_INCLUDE_DIR})
 
@@ -14,11 +12,9 @@ find_package(catkin REQUIRED COMPONENTS
   rospy
   std_msgs
   message_filters
-  cv_bridge #
   sensor_msgs #
   image_transport
   mav_msgs
-  #decomp_ros_msgs
 )
 
 
@@ -34,7 +30,6 @@ include_directories(
   include
   ${catkin_INCLUDE_DIRS}
   ${PCL_INCLUDE_DIRS}
-  ${OpenCV_INCLUDE_DIRS}
   ${Eigen3_INCLUDE_DIRS}
 )
 

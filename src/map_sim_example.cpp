@@ -55,18 +55,6 @@ bool position_received = false;
 
 void actorPublish(const vector<Eigen::Vector3d> &actors)
 {
-//    uint8 ARROW=0//箭头
-//    uint8 CUBE=1//立方体
-//    uint8 SPHERE=2//球
-//    uint8 CYLINDER=3//圆柱体
-//    uint8 LINE_STRIP=4//线条（点的连线）
-//    uint8 LINE_LIST=5//线条序列
-//    uint8 CUBE_LIST=6//立方体序列
-//    uint8 SPHERE_LIST=7//球序列
-//    uint8 POINTS=8//点集
-//    uint8 TEXT_VIEW_FACING=9//显示3D的文字
-//    uint8 MESH_RESOURCE=10//网格？
-//    uint8 TRIANGLE_LIST=11//三角形序列
 
     if(actors.empty()) return;
 
@@ -447,19 +435,6 @@ void cloudCallback(const sensor_msgs::PointCloud2ConstPtr& cloud)
 //    cloud_future_transformed.header.stamp = cloud->header.stamp;
 //    future_risk_pub.publish(cloud_future_transformed);
 
-
-//    /// Visualize initial velocity estimation clusters
-//    pcl::PointCloud<pcl::PointXYZINormal> cluster_cloud;
-//    my_map.getKMClusterResult(cluster_cloud);
-//
-//    sensor_msgs::PointCloud2 cluster_cloud_ros;
-//    pcl::toROSMsg(cluster_cloud, cluster_cloud_ros);
-//
-//    cluster_cloud_ros.header.frame_id = "map";
-//    cluster_cloud_ros.header.stamp = cloud->header.stamp;
-//    cluster_status_pub.publish(cluster_cloud_ros);
-
-
 }
 
 
@@ -504,24 +479,6 @@ void simObjectStateCallback(const gazebo_msgs::ModelStates &msg)
     actorPublish(actor_visualization_points);
     gazebo_model_states_pub.publish(ground_truth_model_states);
 }
-
-
-//
-//void simOdomCallback(const nav_msgs::Odometry &msg)
-//{
-//    uav_position_global.x() = msg.pose.pose.position.x;
-//    uav_position_global.y() = msg.pose.pose.position.y;
-//    uav_position_global.z() = msg.pose.pose.position.z;
-//
-//    uav_att_global.x() = msg.pose.pose.orientation.x;
-//    uav_att_global.y() = msg.pose.pose.orientation.y;
-//    uav_att_global.z() = msg.pose.pose.orientation.z;
-//    uav_att_global.w() = msg.pose.pose.orientation.w;
-//
-//    uav_position_global_queue.push(uav_position_global);
-//    uav_att_global_queue.push(uav_att_global);
-//    pose_att_time_queue.push(msg.header.stamp.toSec());
-//}
 
 void simPoseCallback(const geometry_msgs::PoseStamped &msg)
 {
@@ -627,13 +584,9 @@ int main(int argc, char **argv)
     DSPMap::setOriginalVoxelFilterResolution(res);
 
     ros::Subscriber object_states_sub = n.subscribe("/gazebo/model_states", 1, simObjectStateCallback);
-//    ros::Subscriber point_cloud_sub = n.subscribe("/d400/depth/color/points", 1, cloudCallback);
 
     ros::Subscriber point_cloud_sub = n.subscribe("/camera_front/depth/points", 1, cloudCallback);
 
-//    ros::Subscriber point_cloud_sub = n.subscribe("/iris/vi_sensor/camera_depth/depth/points", 1, cloudCallback);
-//    ros::Subscriber pose_sub = n.subscribe("/iris/ground_truth/pose", 1, simPoseCallback);
-//    ros::Subscriber odom_sub = n.subscribe("/mavros/local_position/odom", 1, simOdomCallback);
     ros::Subscriber pose_sub = n.subscribe("/mavros/local_position/pose", 1, simPoseCallback);
     ros::Subscriber vel_sub = n.subscribe("/mavros/local_position/velocity_local", 1, simVelocityCallback);
 

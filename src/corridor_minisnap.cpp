@@ -39,12 +39,6 @@ Eigen::Vector3d PolyPiece::getPos(double t) const {
     T(i) = pow(t, i);
   }
   pos = _coeffs * T;
-  // std::cout << "POSITION: " << t << std::endl;
-  // std::cout << "T = " << T.transpose() << std::endl;
-  // std::cout << "C = " << _coeffs << std::endl;
-  // std::cout << "P = " << pos.transpose() << std::endl;
-  // std::cout << std::endl;
-  // std::cout << t << '\t' << pos.transpose() << std::endl;
   return pos;
 }
 
@@ -55,11 +49,6 @@ Eigen::Vector3d PolyPiece::getVel(double t) const {
     T(i) = pow(t, i) * (i + 1);
   }
   Eigen::Vector3d vel = _coeffs.block<3, 7>(0, 1) * T / _duration;
-  // std::cout << "VELOCITY:" << t << std::endl;
-  // std::cout << "T = " << T.transpose() << std::endl;
-  // std::cout << "C = " << _coeffs.block<3, 7>(0, 1) << std::endl;
-  // std::cout << "V = " << vel.transpose() << std::endl;
-  // std::cout << std::endl;
 
   return vel;
 }
@@ -71,11 +60,6 @@ Eigen::Vector3d PolyPiece::getAcc(double t) const {
     T(i) = pow(t, i) * (i + 1) * (i + 2);
   }
   Eigen::Vector3d acc = _coeffs.block<3, 6>(0, 2) * T / pow(_duration, 2);
-  // std::cout << "ACCLERATION:" << t << std::endl;
-  // std::cout << "T = " << T.transpose() << std::endl;
-  // std::cout << "C = " << _coeffs.block<3, 7>(0, 1) << std::endl;
-  // std::cout << "A = " << acc.transpose() << std::endl;
-  // std::cout << std::endl;
   return acc;
 }
 
