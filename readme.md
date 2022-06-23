@@ -1,40 +1,103 @@
 
+# Introduction
+This package contains the code to build the risk-aware spatio-temporal (RAST) safety corridors and plan minimum snap trajectory for MAV obstacle avoidance in dynamic uncertain environments. In the ``src`` folder, ``map_sim_example.cpp`` is the node that builds the DSP map and publishes risks in point cloud form. ``planning_node.cpp`` is the node that receives the calculated risks, generate RAST safety corridors and plans minimum snap trajectory. The interfaces are designed for a PX4 MAV.
+
+
 # Compile
-To compile the map. You need to install PCL and munkers-cpp (https://github.com/saebyn/munkres-cpp). 
+__Tested environment__: Ubuntu 18.04 + ROS Melodic and Ubuntu 20.04 + ROS Noetic
+
+To compile the source code, you need:
+1. PCL, Mavros, Eigen. PCL and Eigen are included in the desktop-full version of ROS. Mavros is only used for ROS message subscriptions in the example node. Check [mavros](https://github.com/mavlink/mavros) for installation guidance.
+
+2. Install [munkers-cpp](https://github.com/saebyn/munkres-cpp) with the following steps.
+    ```
+    git clone https://github.com/saebyn/munkres-cpp.git
+    cd munkres-cpp
+    mkdir build && cd build
+    cmake ..
+    make
+    sudo make install
+    ```
+3. Install ``xxxxx``  __Siyuan and Moji__.
+4. Clone the code in an ROS workspace, update submodule and compile.
+   ```
+   mkdir -p rast_ws/src
+   cd rast_ws/src
+   git clone https://github.com/g-ch/RAST_corridor_planning.git
+   cd RAST_corridor_planning
+   git submodule init & git submodule update
+   cd ../..
+   catkin_make
+   ```
+
 
 # Basic Usage
-An example of using this map is presented in map_sim_example.cpp
+## Input and output
+The pipeline is __Environment -> Mapping (include risk calculation) -> Planning (include RAST corridor building) -> Trajectory tracking__.
 
-**The input is point cloud. 
+### Mapping
+Necessary input to build the DSP map and calculate risk with the ``map_sim_example`` mapping node are:
+1) Point cloud from a depth camera in topic "/camera_front/depth/points" with msg type ``sensor_msgs::PointCloud2``. 
+2) MAV position data from Mavros in topic "/mavros/local_position/pose" with msg type ``geometry_msgs::PoseStamped``.
 
-**The output is current occupancy status and future occupancy status. Use function "getOccupancyMapWithFutureStatus" to get the output.
+__Note:__ Building the DSP map requires the FOV parameter of the depth camera. See [DSP Map](https://github.com/g-ch/DSP-map).
 
-**Currently, we publish the current occupancy status with topic "/my_map/cloud_ob" and one layer of the predicted future occupancy maps with topic "/my_map/future_status".
+### Planning
+The ``planning_node`` uses the output risk from ``map_sim_example`` and MAV position and velocity data 
+1) MAV position data from Mavros in topic "/mavros/local_position/pose" with msg type ``geometry_msgs::PoseStamped``.
+2) MAV velocity data from Mavros in topic "/mavros/local_position/velocity_local" with msg type ``geometry_msgs::TwistStamped``.
 
-# Parameters
-Skip the following if you use default parameters. Other wise find them in dsp-nongaussian-dst-new.h \
-1. Change the range and resolution of the map by changing the following parameters:
-```
-#define MAP_LENGTH_VOXEL_NUM 66 //33//29  //odd
-#define MAP_WIDTH_VOXEL_NUM 66 //33//29   //odd
-#define MAP_HEIGHT_VOXEL_NUM 41 //9 //21, 9 //odd
-#define VOXEL_RESOLUTION 0.15
-#define ANGLE_RESOLUTION 3
-#define MAX_PARTICLE_NUM_VOXEL 30 
-```
-**With different resolutions, you also need to change the threshold in "getOccupancyMapWithFutureStatus".
+The output trajectory commands include two forms:
+ 1) Topic "/pva_setpoint" with msg type ``trajectory_msgs::JointTrajectoryPoint``, which contains one position (x,y,z,yaw), velocity and acceleration target. In our experiments, we use this output form and our [pva_tracker](https://github.com/g-ch/pva_tracker) to control a PX4 drone. 
+ 2) Topic "/command/trajectory" with msg type ``trajectory_msgs::MultiDOFJointTrajectory``, which contains the position (x,y,z), velocity and acceleration command of 20 steps, where the first step is the current state of the MAV. This output form is designed for mpc-based trackers. If the planned trajectory is less than 20 steps, we use a constant velocity model to predict the rest steps. One step is 0.05s in our code.
 
-2. Set the camera FOV angle for a new camera:
+## Simulation Environment
+### Quick Test with a ROS Bag
+Download a bag file named `street.bag` containing the point cloud and pose data collected with a MAV in Gazebo. [Download](https://drive.google.com/file/d/1go4ALTe8CqaBY2wjZJzkUCmdlBI7yAAU/view?usp=sharing).
+Save the bag file in the data folder nad launch a test by
 ```
-const int half_fov_h = 45;  // can be divided by ANGLE_RESOLUTION. If not, modify ANGLE_RESOLUTION or make half_fov_h a little smaller value than the real FOV angle
-const int half_fov_v = 27;  // can be divided by ANGLE_RESOLUTION. If not, modify ANGLE_RESOLUTION or make half_fov_h a little smaller value than the real FOV angle
+roslaunch rast_corridor_planning quick_test.launch
 ```
 
-3. Change the time stamp to predict future status
-```
-#define PREDICTION_TIMES 6
-static const float prediction_future_time[PREDICTION_TIMES] = {0.05f, 0.2f, 0.5f, 1.f, 1.5f, 2.f}; //unit: second
-```
+### Test in Gazebo Simulation Environment
+We use the PX4 + Gazebo simulatiion environment. Details of the simulation environment can be found at [PX4+Gazebo](https://docs.px4.io/master/en/simulation/gazebo.html).After you have installed the simulatiion environment, you should modify the variable ``sdf`` in ``posix_sitl.launch`` to use a MAV with depth camera. In our tests, we disabled the left and the right camera in ``iris_triple_depth_camera.sdf`` and use it in ``posix_sitl.launch``. 
+
+Launch a simulation test.
+1) Start simulation environment by opening a command window in your PX4 source code main folder and run:
+   ```
+    DONT_RUN=1 make px4_sitl_default gazebo
+    source Tools/setup_gazebo.bash $(pwd) $(pwd)/build/px4_sitl_default
+    export ROS_PACKAGE_PATH=$ROS_PACKAGE_PATH:$(pwd)
+    export ROS_PACKAGE_PATH=$ROS_PACKAGE_PATH:$(pwd)/Tools/sitl_gazebo
+    roslaunch px4 posix_sitl.launch 
+   ```
+
+2) Start Mavros:
+    ```
+    roslaunch mavros px4.launch fcu_url:="udp://:14540@192.168.1.36:14557"
+    ```
+3) Hover the drone the start the tracker. You can do this step by using our  
+[pva_tracker](https://github.com/g-ch/pva_tracker).
+    ```
+    rosrun pva_tracker tracker_sim_auto_arm_takeoff
+    ```
+
+4) Start mapping and planning by
+   ```
+   roslaunch rast_corridor_planning planning.launch
+   ```
+
+The goal position and parameters related to the planning can be changed in file ``cfg/cfg.yaml``.
+
+## Physical MAV
+It is recommended to use a PX4 MAV with realsense depth camera and NUC or Xavier NX computing board. The pipeline is the same as in simulation. 
+
+
+# Liciense
+MIT Liciense.
+
+# Additional Information
+For more Information abou the DSP map, please refer to [DSP Map](https://github.com/g-ch/DSP-map) and [preprint](https://arxiv.org/abs/2202.06273).
 
 
 

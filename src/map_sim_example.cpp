@@ -40,8 +40,6 @@ ros::Publisher future_risk_pub, future_risk_full_array_pub, current_marker_pub, 
 gazebo_msgs::ModelStates ground_truth_model_states;
 
 Eigen::Vector3d uav_position_global;
-Eigen::Vector3d uav_velocity_global;
-Eigen::Vector3d uav_acceleration_global;
 Eigen::Quaternionf uav_att_global;
 
 float res = 0.15;  // Smaller res will get better tracking result but is slow.
@@ -515,49 +513,6 @@ void simPoseCallback(const geometry_msgs::PoseStamped &msg)
 }
 
 
-void simVelocityCallback(const geometry_msgs::TwistStamped &msg)
-{
-    uav_velocity_global.x() = msg.twist.linear.x;
-    uav_velocity_global.y() = msg.twist.linear.y;
-    uav_velocity_global.z() = msg.twist.linear.z;
-
-//    uav_acceleration_global
-    /** Calculate virtual accelerates from velocity. Original accelerates given by px4 is too noisy **/
-    static bool init_v_flag = true;
-    static double last_time, last_vx, last_vy, last_vz;
-
-    if(init_v_flag){
-        init_v_flag = false;
-    }
-    else{
-        double delt_t = ros::Time::now().toSec() - last_time;
-        uav_acceleration_global(0) = (uav_velocity_global(0) - last_vx) / delt_t;
-        uav_acceleration_global(1) = (uav_velocity_global(1) - last_vy) / delt_t;
-        uav_acceleration_global(2) = (uav_velocity_global(2) - last_vz) / delt_t;
-
-        if(fabs(uav_acceleration_global(0)) < 0.2) uav_acceleration_global(0) = 0.0;  //dead zone for acc x
-        if(fabs(uav_acceleration_global(1)) < 0.2) uav_acceleration_global(1) = 0.0; //dead zone for acc y
-        if(fabs(uav_acceleration_global(2)) < 0.2) uav_acceleration_global(2) = 0.0; //dead zone for acc z
-
-        for(int i=0; i<3; i++){
-            if(uav_acceleration_global(i) < -max_differentiated_current_a){
-                uav_acceleration_global(i) = -max_differentiated_current_a;
-            }else if(uav_acceleration_global(i) > max_differentiated_current_a){
-                uav_acceleration_global(i) = max_differentiated_current_a;
-            }
-        }
-
-        //ROS_INFO("acc=(%f, %f, %f)", uav_acceleration_global(0), uav_acceleration_global(1), uav_acceleration_global(2));
-    }
-
-    last_time = ros::Time::now().toSec();
-    last_vx = uav_velocity_global(0);
-    last_vy = uav_velocity_global(1);
-    last_vz = uav_velocity_global(2);
-
-}
-
-
 float localization_stddev = 0.f;
 float observation_stddev = 0.05f;
 void getParameterList(const ros::NodeHandle& nh) {
@@ -586,9 +541,7 @@ int main(int argc, char **argv)
     ros::Subscriber object_states_sub = n.subscribe("/gazebo/model_states", 1, simObjectStateCallback);
 
     ros::Subscriber point_cloud_sub = n.subscribe("/camera_front/depth/points", 1, cloudCallback);
-
     ros::Subscriber pose_sub = n.subscribe("/mavros/local_position/pose", 1, simPoseCallback);
-    ros::Subscriber vel_sub = n.subscribe("/mavros/local_position/velocity_local", 1, simVelocityCallback);
 
     cloud_pub = n.advertise<sensor_msgs::PointCloud2>("/my_map/cloud_ob", 1, true);
     map_center_pub = n.advertise<geometry_msgs::PoseStamped>("/my_map/map_center", 1, true);
