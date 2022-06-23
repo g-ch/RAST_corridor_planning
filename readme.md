@@ -1,6 +1,6 @@
 
 # Introduction
-This package contains the code to build the risk-aware spatio-temporal (RAST) safety corridors and plan minimum snap trajectory for MAV obstacle avoidance in dynamic uncertain environments. In the ``src`` folder, ``map_sim_example.cpp`` is the node that builds the DSP map and publishes risks in point cloud form. ``planning_node.cpp`` is the node that receives the calculated risks, generate RAST safety corridors and plans minimum snap trajectory. The interfaces are designed for a PX4 MAV.
+This package contains the code to build the risk-aware spatio-temporal (RAST) safety corridors and plan a minimum snap trajectory for MAV obstacle avoidance in dynamic uncertain environments. In the ``src`` folder, ``map_sim_example.cpp`` is the node that builds the DSP map and publishes risks in point cloud form. ``planning_node.cpp`` is the node that receives the calculated risks, generates RAST safety corridors, and plans minimum snap trajectory. The interfaces are designed for a PX4 MAV.
 
 
 # Compile
@@ -19,7 +19,7 @@ To compile the source code, you need:
     sudo make install
     ```
 3. Install ``xxxxx``  __Siyuan and Moji__.
-4. Clone the code in an ROS workspace, update submodule and compile.
+4. Clone the code in a ROS workspace, update the submodule, and compile.
    ```
    mkdir -p rast_ws/src
    cd rast_ws/src
@@ -32,7 +32,7 @@ To compile the source code, you need:
 
 
 # Basic Usage
-## Input and output
+## Input and output Details
 The pipeline is __Environment -> Mapping (include risk calculation) -> Planning (include RAST corridor building) -> Trajectory tracking__.
 
 ### Mapping
@@ -51,19 +51,19 @@ The output trajectory commands include two forms:
  1) Topic "/pva_setpoint" with msg type ``trajectory_msgs::JointTrajectoryPoint``, which contains one position (x,y,z,yaw), velocity and acceleration target. In our experiments, we use this output form and our [pva_tracker](https://github.com/g-ch/pva_tracker) to control a PX4 drone. 
  2) Topic "/command/trajectory" with msg type ``trajectory_msgs::MultiDOFJointTrajectory``, which contains the position (x,y,z), velocity and acceleration command of 20 steps, where the first step is the current state of the MAV. This output form is designed for mpc-based trackers. If the planned trajectory is less than 20 steps, we use a constant velocity model to predict the rest steps. One step is 0.05s in our code.
 
-## Simulation Environment
+## Test in Simulation
 ### Quick Test with a ROS Bag
 Download a bag file named `street.bag` containing the point cloud and pose data collected with a MAV in Gazebo. [Download](https://drive.google.com/file/d/1go4ALTe8CqaBY2wjZJzkUCmdlBI7yAAU/view?usp=sharing).
-Save the bag file in the data folder nad launch a test by
+Save the bag file in the data folder and launch a test by
 ```
 roslaunch rast_corridor_planning quick_test.launch
 ```
 
 ### Test in Gazebo Simulation Environment
-We use the PX4 + Gazebo simulatiion environment. Details of the simulation environment can be found at [PX4+Gazebo](https://docs.px4.io/master/en/simulation/gazebo.html).After you have installed the simulatiion environment, you should modify the variable ``sdf`` in ``posix_sitl.launch`` to use a MAV with depth camera. In our tests, we disabled the left and the right camera in ``iris_triple_depth_camera.sdf`` and use it in ``posix_sitl.launch``. 
+We use the PX4 + Gazebo simulation environment. Details of the simulation environment can be found at [PX4+Gazebo](https://docs.px4.io/master/en/simulation/gazebo.html). After you have installed the simulation environment, you should modify the variable ``sdf`` in ``posix_sitl.launch`` to use a MAV with a depth camera. In our tests, we disabled the left and the right camera in ``iris_triple_depth_camera.sdf`` and use it in ``posix_sitl.launch``. 
 
 Launch a simulation test.
-1) Start simulation environment by opening a command window in your PX4 source code main folder and run:
+1) Start the simulation environment by opening a command window in your PX4 source code main folder and run:
    ```
     DONT_RUN=1 make px4_sitl_default gazebo
     source Tools/setup_gazebo.bash $(pwd) $(pwd)/build/px4_sitl_default
@@ -76,7 +76,7 @@ Launch a simulation test.
     ```
     roslaunch mavros px4.launch fcu_url:="udp://:14540@192.168.1.36:14557"
     ```
-3) Hover the drone the start the tracker. You can do this step by using our  
+3) Hover the drone and start the tracker. You can do this step by using our  
 [pva_tracker](https://github.com/g-ch/pva_tracker).
     ```
     rosrun pva_tracker tracker_sim_auto_arm_takeoff
@@ -89,8 +89,8 @@ Launch a simulation test.
 
 The goal position and parameters related to the planning can be changed in file ``cfg/cfg.yaml``.
 
-## Physical MAV
-It is recommended to use a PX4 MAV with realsense depth camera and NUC or Xavier NX computing board. The pipeline is the same as in simulation. 
+## Test with a Physical MAV
+It is recommended to use a PX4 MAV with a realsense depth camera and NUC or Xavier NX computing board. The pipeline is the same as in the simulation. 
 
 
 # Liciense
@@ -98,7 +98,5 @@ MIT Liciense.
 
 # Additional Information
 For more Information abou the DSP map, please refer to [DSP Map](https://github.com/g-ch/DSP-map) and [preprint](https://arxiv.org/abs/2202.06273).
-
-
 
 
