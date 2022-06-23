@@ -1299,6 +1299,7 @@ int main(int argc, char **argv)
     color_vel_pub = n.advertise<visualization_msgs::Marker>("/colored_trajectory", 1);
 
     pva_traj_pub = n.advertise<trajectory_msgs::MultiDOFJointTrajectory>("/command/trajectory", 1, true);
+    
     velocity_setpoint_pub = n.advertise<geometry_msgs::TwistStamped>("/command/velocity_setpoint", 1, true);
     position_tracking_pub = n.advertise<geometry_msgs::PoseStamped>("/command/position_tracking_error", 1, true);
 
