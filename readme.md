@@ -18,7 +18,7 @@ To compile the source code, you need:
     make
     sudo make install
     ```
-3. Install [OSQP](https://github.com/osqp/osqp), which is a lightweight QP solver. You can follow these [installation guidelines](https://osqp.org/docs/get_started/sources.html#build-the-binaries)
+3. Install [OSQP](https://github.com/osqp/osqp), which is a lightweight QP solver. You can follow these [installation guidelines](https://osqp.org/docs/get_started/sources.html#build-the-binaries).
     ```
     git clone git@github.com:osqp/osqp.git
     cd osqp
