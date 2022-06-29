@@ -20,11 +20,12 @@ To compile the source code, you need:
     ```
 3. Install [OSQP](https://github.com/osqp/osqp), which is a lightweight QP solver. You can follow these [installation guidelines](https://osqp.org/docs/get_started/sources.html#build-the-binaries).
     ```
-    git clone git@github.com:osqp/osqp.git
+    git clone --recursive https://github.com/osqp/osqp
     cd osqp
     mkdir build && cd build
     cmake -G "Unix Makefiles" ..
     cmake --build .
+    sudo cmake --build . --target install
     ```
 
 4. Clone the code in a ROS workspace, update the submodule, and compile.
